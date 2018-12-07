@@ -63,7 +63,7 @@ class Check(object):
         return {'args': args, 'interval': interval}
 
     @classmethod
-    def http(klass, url, interval, timeout=None, deregister=None, header=None):
+    def http(klass, url, interval, timeout=None, deregister=None, status=None, header=None, check_id=None, notes=None, service_id=None):
         """
         Peform a HTTP GET against *url* every *interval* (e.g. "10s") to peform
         health check with an optional *timeout* and optional *deregister* after
@@ -73,16 +73,25 @@ class Check(object):
         e.g. {"x-foo": ["bar", "baz"]}.
         """
         ret = {'http': url, 'interval': interval}
+        if check_id:
+            ret['id'] = check_id
+        if notes:
+            ret['notes'] = notes
+        if service_id:
+            ret['serviceid'] = service_id
         if timeout:
             ret['timeout'] = timeout
+        if status:
+            ret['status']  = status
         if deregister:
             ret['DeregisterCriticalServiceAfter'] = deregister
         if header:
             ret['header'] = header
+
         return ret
 
     @classmethod
-    def tcp(klass, host, port, interval, timeout=None, deregister=None):
+    def tcp(klass, host, port, interval, timeout=None, status=None, deregister=None, check_id=None, notes=None, service_id=None):
         """
         Attempt to establish a tcp connection to the specified *host* and
         *port* at a specified *interval* with optional *timeout* and optional
@@ -93,8 +102,16 @@ class Check(object):
             'tcp': '{host:s}:{port:d}'.format(host=host, port=port),
             'interval': interval
         }
+        if check_id:
+            ret['id'] = check_id
+        if notes:
+            ret['notes'] = notes
+        if service_id:
+            ret['serviceid'] = service_id
         if timeout:
             ret['timeout'] = timeout
+        if status:
+            ret['status']  = status
         if deregister:
             ret['DeregisterCriticalServiceAfter'] = deregister
         return ret
@@ -108,7 +125,7 @@ class Check(object):
         return {'ttl': ttl}
 
     @classmethod
-    def docker(klass, container_id, shell, script, interval, deregister=None):
+    def docker(klass, container_id, shell, script, interval, status=None, deregister=None, check_id=None, notes=None, service_id=None):
         """
         Invoke *script* packaged within a running docker container with
         *container_id* at a specified *interval* on the configured
@@ -121,6 +138,14 @@ class Check(object):
             'script': script,
             'interval': interval
         }
+        if check_id:
+            ret['id'] = check_id
+        if notes:
+            ret['notes'] = notes
+        if service_id:
+            ret['serviceid'] = service_id
+        if status:
+            ret['status']  = status
         if deregister:
             ret['DeregisterCriticalServiceAfter'] = deregister
         return ret
@@ -132,7 +157,10 @@ class Check(object):
             interval=None,
             ttl=None,
             http=None,
+            check_id=None,
+            notes=None,
             timeout=None,
+            status=None,
             deregister=None):
 
         if not script and not http and not ttl:
@@ -152,10 +180,15 @@ class Check(object):
         if http:
             assert interval and not (script or ttl)
             ret['check'] = {'http': http, 'interval': interval}
+        if check_id:
+            ret['check']['id'] = check_id
+        if notes:
+            ret['check']['notes'] = notes
         if timeout:
             assert http
             ret['check']['timeout'] = timeout
-
+        if status:
+            ret['check']['status']  = status
         if deregister:
             ret['check']['DeregisterCriticalServiceAfter'] = deregister
 
@@ -826,6 +859,8 @@ class Consul(object):
                     ttl=None,
                     http=None,
                     timeout=None,
+                    status=None,
+                    deregister=None,
                     enable_tag_override=False):
                 """
                 Add a new service to the local agent. There is more
@@ -874,21 +909,24 @@ class Consul(object):
                 if address:
                     payload['address'] = address
                 if port:
-                    payload['port'] = port
+                    payload['port'] = int(port)
                 if tags:
                     payload['tags'] = tags
                 if meta:
                     payload['meta'] = meta
                 if check:
+                    if 'id' not in check:
+                        raise Exception('Must provide check id otherwise bad id is assigned')
                     payload['check'] = check
-
                 else:
                     payload.update(Check._compat(
                         script=script,
                         interval=interval,
                         ttl=ttl,
                         http=http,
-                        timeout=timeout))
+                        timeout=timeout,
+                        status=status,
+                        deregister=deregister))
 
                 params = []
                 token = token or self.agent.token
@@ -953,7 +991,9 @@ class Consul(object):
                     interval=None,
                     ttl=None,
                     http=None,
-                    timeout=None):
+                    timeout=None,
+                    status=None,
+                    deregister=None):
                 """
                 Register a new check with the local agent. More documentation
                 on checks can be found `here
@@ -996,7 +1036,9 @@ class Consul(object):
                         interval=interval,
                         ttl=ttl,
                         http=http,
-                        timeout=timeout)['check'])
+                        timeout=timeout,
+                        status=status,
+                        deregister=deregister)['check'])
 
                 if check_id:
                     payload['id'] = check_id
