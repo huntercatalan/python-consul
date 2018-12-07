@@ -915,8 +915,7 @@ class Consul(object):
                 if meta:
                     payload['meta'] = meta
                 if check:
-                    if 'id' not in check:
-                        raise Exception('Must provide check id otherwise bad id is assigned')
+                    raise Exception('Cannot pass check with service otherwise bad id is assigned')
                     payload['check'] = check
                 else:
                     payload.update(Check._compat(
